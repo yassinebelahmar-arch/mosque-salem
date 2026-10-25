@@ -174,7 +174,7 @@ function mosquesDataApiPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
-    base: './',
+    base: '/mosque-salem/',
     plugins: [react(), tailwindcss(), mosquesDataApiPlugin()],
     resolve: {
       alias: {
