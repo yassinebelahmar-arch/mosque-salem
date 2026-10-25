@@ -32,8 +32,6 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          APP_URL: https://yassinebelahmar-arch.github.io/Mosqueestsulpice/
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3

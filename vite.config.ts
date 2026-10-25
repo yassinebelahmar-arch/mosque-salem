@@ -173,14 +173,8 @@ function mosquesDataApiPlugin(): Plugin {
 }
 
 export default defineConfig(() => {
-  const base = process.env.APP_URL
-    ? (new URL(process.env.APP_URL).pathname.endsWith('/')
-        ? new URL(process.env.APP_URL).pathname
-        : `${new URL(process.env.APP_URL).pathname}/`)
-    : './';
-
   return {
-    base,
+    base: './',
     plugins: [react(), tailwindcss(), mosquesDataApiPlugin()],
     resolve: {
       alias: {
