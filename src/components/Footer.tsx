@@ -1,5 +1,6 @@
 import React from 'react';
 import { Heart, ExternalLink, MapPin, Mail, Clock } from 'lucide-react';
+import mosqueeLogo from '../assets/images/mosquee-salem-logo.png';
 
 interface FooterProps {
   cotizupParkingUrl: string;
@@ -22,7 +23,7 @@ export const Footer: React.FC<FooterProps> = ({
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#0F3524] border border-emerald-800 flex items-center justify-center p-1">
                 <img
-                  src="/assets/mosquee-salem-logo.png"
+                  src={mosqueeLogo}
                   alt="Logo Mosquée SALEM"
                   className="w-full h-full object-contain"
                 />

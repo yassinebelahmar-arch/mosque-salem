@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, BookOpen, Users, HeartHandshake, ShieldCheck, Accessibility, Car } from 'lucide-react';
+import mosqueeStandardHero from '../assets/images/mosquee-standard-hero.jpg';
 
 export const MissionSection: React.FC = () => {
   const stats = [
@@ -54,13 +55,10 @@ export const MissionSection: React.FC = () => {
           {/* Left: Clean Mosque Architecture Image */}
           <div className="lg:col-span-5 rounded-2xl sm:rounded-3xl overflow-hidden shadow-md border border-stone-200/80 bg-stone-100 min-h-[340px] lg:min-h-full relative group">
             <img
-              src="/assets/mosquee-standard-hero.jpg"
+              src={mosqueeStandardHero}
               alt="Espace et architecture de sérénité"
               className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
               loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/public/assets/mosquee-standard-hero.jpg';
-              }}
             />
             <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-xs text-white text-[11px] font-medium px-3 py-1 rounded-lg">
               Cadre de recueillement & de fraternité

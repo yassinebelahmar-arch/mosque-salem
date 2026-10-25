@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Menu, X, Heart, ExternalLink } from 'lucide-react';
+import mosqueeLogo from '../assets/images/mosquee-salem-logo.png';
 
 interface HeaderProps {
   cotizupUrl: string;
@@ -32,12 +33,9 @@ export const Header: React.FC<HeaderProps> = ({ cotizupUrl }) => {
           >
             <div className="relative w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl overflow-hidden bg-[#FAF8F5] border border-emerald-700/40 flex items-center justify-center shadow-xs group-hover:border-amber-400/80 transition-colors p-1 shrink-0">
               <img
-                src="/assets/mosquee-salem-logo.png"
+                src={mosqueeLogo}
                 alt="Logo Mosquée SALEM"
                 className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/public/assets/mosquee-salem-logo.png';
-                }}
               />
             </div>
             <div className="flex flex-col min-w-0">

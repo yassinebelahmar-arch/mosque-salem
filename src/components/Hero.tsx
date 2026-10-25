@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Maximize2
 } from 'lucide-react';
+import mosqueeInterior from '../assets/images/mosquee-salem-interior.jpg';
+import mosqueeLogo from '../assets/images/mosquee-salem-logo.png';
 
 interface HeroProps {
   cotizupParkingUrl: string;
@@ -131,7 +133,7 @@ export const Hero: React.FC<HeroProps> = ({ cotizupParkingUrl, onOpenCalendar })
           
           {/* The Authentic 1920x1080 Photograph of Mosquée Salem */}
           <img
-            src="/assets/mosquee-salem-interior.jpg"
+            src={mosqueeInterior}
             alt="Photo authentique de la salle de prière de la Mosquée SALEM de Saint-Sulpice-la-Pointe"
             className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-1000 ease-out"
             loading="eager"
@@ -165,7 +167,7 @@ export const Hero: React.FC<HeroProps> = ({ cotizupParkingUrl, onOpenCalendar })
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white flex items-center justify-center shrink-0 border border-emerald-400 p-1 shadow-md">
                       <img
-                        src="/assets/mosquee-salem-logo.png"
+                        src={mosqueeLogo}
                         alt="Logo Mosquée SALEM"
                         className="w-full h-full object-contain"
                       />
