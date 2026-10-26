@@ -47,7 +47,13 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
 
   const fetchLiveMawaqit = () => {
     setIsRefreshing(true);
-    fetch('/api/mawaqit')
+    const base = import.meta.env.BASE_URL || '/';
+    const cleanBase = base.endsWith('/') ? base : `${base}/`;
+    fetch(`${cleanBase}api/mawaqit.json`)
+      .then((res) => {
+        if (!res.ok) return fetch('/api/mawaqit');
+        return res;
+      })
       .then((res) => {
         if (!res.ok) throw new Error('API unavailable');
         return res.json();

@@ -28,7 +28,12 @@ export const ParkingDonationSection: React.FC<ParkingDonationSectionProps> = ({
   const syncWithCotizup = async (isManual = false) => {
     setIsRefreshing(true);
     try {
-      const res = await fetch('/api/cotizup');
+      const base = import.meta.env.BASE_URL || '/';
+      const cleanBase = base.endsWith('/') ? base : `${base}/`;
+      let res = await fetch(`${cleanBase}api/cotizup.json`);
+      if (!res.ok) {
+        res = await fetch('/api/cotizup');
+      }
       if (res.ok) {
         const data = await res.json();
         if (data?.currentAmount !== undefined && onUpdateProject) {

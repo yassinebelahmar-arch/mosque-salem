@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "source": "official-mosquee-salem",
+  "updatedAt": "2026-10-25T15:54:20.709Z",
+  "times": {
+    "fajr": "07:00",
+    "shuruk": "08:16",
+    "dhuhr": "13:40",
+    "asr": "16:34",
+    "maghrib": "19:04",
+    "isha": "20:17"
+  },
+  "iqama": {
+    "fajr": "07:10",
+    "shuruk": "-",
+    "dhuhr": "13:50",
+    "asr": "16:44",
+    "maghrib": "19:09",
+    "isha": "20:27"
+  },
+  "jumua": "13:00",
+  "announcement": "Salam Aleïkoum, chers fidèles, l'Iqama de la prière du Fajr a lieu 10 minutes après l'Adhan.",
+  "calendar": null
+}

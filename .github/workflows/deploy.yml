@@ -4,6 +4,9 @@ name: Deploy Mosquee Salem
 on:
   push:
     branches: [main]
+  schedule:
+    # Synchronisation automatique toutes les heures (rafraîchissement des dons et horaires)
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
