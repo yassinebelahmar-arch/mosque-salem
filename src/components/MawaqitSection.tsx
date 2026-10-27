@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Clock, Calendar, Info, RefreshCw, AlertCircle, CalendarDays, Printer, ChevronLeft, ChevronRight, Download } from 'lucide-react';
-import { getPrayerScheduleInfo, OFFICIAL_MAWAQIT_NOTICE, calculateIqamaTime, getJumuaTime } from '../utils/prayerTimes';
+import { ExternalLink, Clock, Info, RefreshCw, AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import {
+  getPrayerScheduleInfo,
+  OFFICIAL_MAWAQIT_NOTICE,
+  calculateIqamaTime,
+  getJumuaTime,
+  getCurrentParisDate,
+  formatFrenchDate,
+  formatShortDateFR,
+} from '../utils/prayerTimes';
 import { getMonthlyCalendar, MONTH_NAMES_FR, DayPrayerSchedule } from '../utils/prayerCalendar';
 import { downloadPrayerCalendarPdf } from '../utils/generatePrayerPdf';
 
@@ -14,9 +22,9 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
   const [lastSync, setLastSync] = useState<string>('En direct');
   const [announcement, setAnnouncement] = useState<string>(OFFICIAL_MAWAQIT_NOTICE);
 
-  const today = new Date();
-  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth() + 1);
+  const [currentDate, setCurrentDate] = useState<Date>(() => getCurrentParisDate());
+  const [selectedYear, setSelectedYear] = useState<number>(() => getCurrentParisDate().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => getCurrentParisDate().getMonth() + 1);
 
   // Live Mawaqit state synchronized with official API
   const [liveData, setLiveData] = useState<{
@@ -26,20 +34,20 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
     calendar: Array<Record<string, string[]>> | null;
   }>({
     times: {
-      fajr: '07:00',
-      shuruk: '08:16',
-      dhuhr: '13:40',
-      asr: '16:34',
-      maghrib: '19:04',
-      isha: '20:17',
+      fajr: '06:06',
+      shuruk: '07:23',
+      dhuhr: '12:39',
+      asr: '15:28',
+      maghrib: '17:56',
+      isha: '19:10',
     },
     iqama: {
-      fajr: '07:10',
+      fajr: '06:16',
       shuruk: '-',
-      dhuhr: '13:50',
-      asr: '16:44',
-      maghrib: '19:09',
-      isha: '20:27',
+      dhuhr: '12:49',
+      asr: '15:38',
+      maghrib: '18:01',
+      isha: '19:20',
     },
     jumua: '13:00',
     calendar: null,
@@ -49,9 +57,9 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
     setIsRefreshing(true);
     const base = import.meta.env.BASE_URL || '/';
     const cleanBase = base.endsWith('/') ? base : `${base}/`;
-    fetch(`${cleanBase}api/mawaqit.json`)
+    fetch(`${cleanBase}api/mawaqit.json?t=${Date.now()}`, { credentials: 'include' })
       .then((res) => {
-        if (!res.ok) return fetch('/api/mawaqit');
+        if (!res.ok) return fetch(`/api/mawaqit?t=${Date.now()}`, { credentials: 'include' });
         return res;
       })
       .then((res) => {
@@ -63,20 +71,22 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
           setLiveData({
             times: data.times,
             iqama: data.iqama || {
-              fajr: data.times.fajr,
-              dhuhr: '13:50',
-              asr: '16:44',
-              maghrib: '19:09',
-              isha: '20:27',
+              fajr: calculateIqamaTime('fajr', data.times.fajr),
+              dhuhr: calculateIqamaTime('dhuhr', data.times.dhuhr),
+              asr: calculateIqamaTime('asr', data.times.asr),
+              maghrib: calculateIqamaTime('maghrib', data.times.maghrib),
+              isha: calculateIqamaTime('isha', data.times.isha),
             },
-            jumua: data.jumua || '13:41',
+            jumua: data.jumua || '13:00',
             calendar: data.calendar || null,
           });
           if (data.announcement) {
             setAnnouncement(data.announcement);
           }
         }
-        setLastSync(new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+        const parisNow = getCurrentParisDate();
+        setCurrentDate(parisNow);
+        setLastSync(parisNow.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
       })
       .catch(() => {
         setLastSync('À jour');
@@ -91,25 +101,33 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
     const interval = setInterval(() => {
       fetchLiveMawaqit();
     }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const clockInterval = setInterval(() => {
+      setCurrentDate(getCurrentParisDate());
+    }, 30000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(clockInterval);
+    };
   }, []);
 
   const scheduleInfo = getPrayerScheduleInfo(
-    today,
+    currentDate,
     liveData.times,
     liveData.iqama,
-    liveData.jumua
+    liveData.jumua,
+    liveData.calendar
   );
 
   const isFriday = scheduleInfo.isFriday;
-  const jumuaTime = getJumuaTime(today); // 13:00 à partir de dimanche
+  const jumuaTime = getJumuaTime(scheduleInfo.effectiveDate); // 13:00
+  const effectiveTimes = scheduleInfo.effectiveTimes;
 
-  const fajrAdhan = liveData.times.fajr || '07:00';
-  const shurukAdhan = liveData.times.shuruk || '08:16';
-  const dhuhrAdhan = isFriday ? jumuaTime : (liveData.times.dhuhr || '13:40');
-  const asrAdhan = liveData.times.asr || '16:34';
-  const maghribAdhan = liveData.times.maghrib || '19:04';
-  const ishaAdhan = liveData.times.isha || '20:17';
+  const fajrAdhan = effectiveTimes.fajr || '06:06';
+  const shurukAdhan = effectiveTimes.shuruk || '07:23';
+  const dhuhrAdhan = isFriday ? jumuaTime : (effectiveTimes.dhuhr || '12:39');
+  const asrAdhan = effectiveTimes.asr || '15:28';
+  const maghribAdhan = effectiveTimes.maghrib || '17:56';
+  const ishaAdhan = effectiveTimes.isha || '19:10';
 
   const prayerSchedule = [
     {
@@ -168,7 +186,8 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
   const monthlyDays: DayPrayerSchedule[] = getMonthlyCalendar(
     selectedYear,
     selectedMonth,
-    liveData.calendar
+    liveData.calendar,
+    scheduleInfo.effectiveDate
   );
 
   const handlePrevMonth = () => {
@@ -212,14 +231,19 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
 
           {/* Action Links & Refresh */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Synchro auto active</span>
+            </div>
+
             <button
               onClick={fetchLiveMawaqit}
               disabled={isRefreshing}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-stone-700 hover:text-emerald-900 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors cursor-pointer"
-              title="Vérifier la synchronisation avec Mawaqit"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-stone-800 hover:text-emerald-950 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-all cursor-pointer shadow-2xs"
+              title="Forcer une synchronisation immédiate avec Mawaqit"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-700' : ''}`} />
-              <span>Synchro : {lastSync}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-700' : 'text-stone-600'}`} />
+              <span>{isRefreshing ? 'Synchronisation...' : `Synchroniser (${lastSync})`}</span>
             </button>
 
             <a
@@ -245,7 +269,7 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>Horaires du jour (En direct)</span>
+            <span>Horaires du {formatShortDateFR(scheduleInfo.effectiveDate)} (En direct)</span>
           </button>
 
           <button
@@ -304,8 +328,8 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
           <div className="bg-[#FAF8F5] rounded-3xl border border-stone-200/90 p-5 sm:p-8 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-stone-200">
               <div>
-                <h3 className="font-editorial text-2xl font-bold text-stone-900">
-                  Grille des prières du jour
+                <h3 className="font-editorial text-2xl font-bold text-stone-900 capitalize">
+                  Grille des prières — {formatFrenchDate(scheduleInfo.effectiveDate)} ({formatShortDateFR(scheduleInfo.effectiveDate)})
                 </h3>
                 <p className="text-xs sm:text-sm text-stone-600">
                   Mosquée SALEM · Saint-Sulpice-la-Pointe (81370) · Synchronisé Mawaqit
@@ -323,7 +347,7 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
                 <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 bg-white px-3.5 py-2 rounded-xl border border-stone-200 shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
                   <span>
-                    Prochaine prière : <strong className="text-stone-900">{scheduleInfo.nextPrayer.name}</strong> dans {scheduleInfo.formattedCountdown}
+                    Prochaine prière : <strong className="text-stone-900">{scheduleInfo.nextPrayer.name} ({scheduleInfo.nextPrayer.time})</strong> dans {scheduleInfo.formattedCountdown}
                   </span>
                 </div>
               )}
@@ -391,7 +415,9 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
             <div className="mt-5 pt-4 border-t border-stone-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                <span>Horaires officiels Mawaqit pour Saint-Sulpice-la-Pointe</span>
+                <span>
+                  Horaires officiels Mawaqit du {formatShortDateFR(scheduleInfo.effectiveDate)} pour Saint-Sulpice-la-Pointe
+                </span>
               </span>
               <button
                 onClick={() => setActiveTab('calendar')}
@@ -494,7 +520,7 @@ export const MawaqitSection: React.FC<MawaqitSectionProps> = ({ mawaqitUrl }) =>
                           </span>
                           {isTodayRow && (
                             <span className="ml-2 text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
-                              Aujourd'hui
+                              En cours
                             </span>
                           )}
                         </td>

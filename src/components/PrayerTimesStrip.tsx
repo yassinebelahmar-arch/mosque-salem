@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, CalendarDays, ExternalLink } from 'lucide-react';
-import { getPrayerScheduleInfo, formatFrenchDate, calculateIqamaTime, getJumuaTime } from '../utils/prayerTimes';
+import { Clock, Calendar, CalendarDays, ExternalLink, RefreshCw } from 'lucide-react';
+import {
+  getPrayerScheduleInfo,
+  formatFrenchDate,
+  formatShortDateFR,
+  calculateIqamaTime,
+  getJumuaTime,
+  getCurrentParisDate,
+} from '../utils/prayerTimes';
 
 interface PrayerTimesStripProps {
   mawaqitUrl: string;
@@ -13,37 +20,42 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
   overrideTimes,
   onOpenCalendar,
 }) => {
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [currentDate, setCurrentDate] = useState<Date>(() => getCurrentParisDate());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSync, setLastSync] = useState<string>('En direct');
   const [liveData, setLiveData] = useState<{
     times?: Record<string, string>;
     iqama?: Record<string, string>;
     jumua?: string;
+    calendar?: Array<Record<string, string[]>> | null;
   }>({
     times: {
-      fajr: '07:00',
-      shuruk: '08:16',
-      dhuhr: '13:40',
-      asr: '16:34',
-      maghrib: '19:04',
-      isha: '20:17',
+      fajr: '06:06',
+      shuruk: '07:23',
+      dhuhr: '12:39',
+      asr: '15:28',
+      maghrib: '17:56',
+      isha: '19:10',
     },
     iqama: {
-      fajr: '07:10',
+      fajr: '06:16',
       shuruk: '-',
-      dhuhr: '13:50',
-      asr: '16:44',
-      maghrib: '19:09',
-      isha: '20:27',
+      dhuhr: '12:49',
+      asr: '15:38',
+      maghrib: '18:01',
+      isha: '19:20',
     },
     jumua: '13:00',
+    calendar: null,
   });
 
-  useEffect(() => {
+  const fetchLiveMawaqit = () => {
+    setIsRefreshing(true);
     const base = import.meta.env.BASE_URL || '/';
     const cleanBase = base.endsWith('/') ? base : `${base}/`;
-    fetch(`${cleanBase}api/mawaqit.json`)
+    fetch(`${cleanBase}api/mawaqit.json?t=${Date.now()}`, { credentials: 'include' })
       .then((res) => {
-        if (!res.ok) return fetch('/api/mawaqit');
+        if (!res.ok) return fetch(`/api/mawaqit?t=${Date.now()}`, { credentials: 'include' });
         return res;
       })
       .then((res) => {
@@ -56,40 +68,65 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
             times: data.times,
             iqama: data.iqama,
             jumua: data.jumua,
+            calendar: data.calendar || null,
           });
+          const parisNow = getCurrentParisDate();
+          setCurrentDate(parisNow);
+          setLastSync(
+            parisNow.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          );
         }
       })
       .catch(() => {
-        // Fallback already pre-initialized
+        setLastSync('À jour');
+      })
+      .finally(() => {
+        setIsRefreshing(false);
       });
+  };
+
+  useEffect(() => {
+    fetchLiveMawaqit();
+
+    const syncInterval = setInterval(() => {
+      fetchLiveMawaqit();
+    }, 5 * 60 * 1000);
 
     const timer = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+      setCurrentDate(getCurrentParisDate());
+    }, 30000);
 
-  const effectiveTimes = {
-    ...liveData.times,
-    ...(overrideTimes || {}),
-  };
+    return () => {
+      clearInterval(syncInterval);
+      clearInterval(timer);
+    };
+  }, []);
 
   const scheduleInfo = getPrayerScheduleInfo(
     currentDate,
-    effectiveTimes,
+    {
+      ...liveData.times,
+      ...(overrideTimes || {}),
+    },
     liveData.iqama,
-    liveData.jumua
+    liveData.jumua,
+    liveData.calendar
   );
 
-  // The 5 mandatory daily prayers strictly requested by the user to remain FIXED (not scrolling or dropdown):
-  // Fajr, Dhuhr, Asr, Maghrib, Isha
+  // Use the rolled-over times from scheduleInfo (after each prayer finishes, its time rolls over to tomorrow;
+  // after Isha, all displayed times and effectiveDate are tomorrow's schedule, e.g. 27/10/2026)
+  const effectiveTimes = {
+    ...scheduleInfo.effectiveTimes,
+    ...(overrideTimes || {}),
+  };
+
   const isFri = scheduleInfo.isFriday;
-  const fajrTime = effectiveTimes?.fajr || '07:00';
-  const jumuaTime = getJumuaTime(currentDate); // 13:00 à partir de dimanche
-  const dhuhrTime = isFri ? jumuaTime : (effectiveTimes?.dhuhr || '13:40');
-  const asrTime = effectiveTimes?.asr || '16:34';
-  const maghribTime = effectiveTimes?.maghrib || '19:04';
-  const ishaTime = effectiveTimes?.isha || '20:17';
+  const fajrTime = effectiveTimes.fajr || '06:06';
+  const jumuaTime = getJumuaTime(scheduleInfo.effectiveDate); // 13:00
+  const dhuhrTime = isFri ? jumuaTime : (effectiveTimes.dhuhr || '12:39');
+  const asrTime = effectiveTimes.asr || '15:28';
+  const maghribTime = effectiveTimes.maghrib || '17:56';
+  const ishaTime = effectiveTimes.isha || '19:10';
 
   const fixedPrayers = [
     {
@@ -140,7 +177,7 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
               <span className="text-xs sm:text-sm font-semibold capitalize">
-                {formatFrenchDate(currentDate)}
+                {formatFrenchDate(scheduleInfo.effectiveDate)} ({formatShortDateFR(scheduleInfo.effectiveDate)})
               </span>
             </div>
 
@@ -148,7 +185,7 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
 
             {/* Shuruk info badge */}
             <span className="text-[11px] sm:text-xs text-stone-500 font-medium">
-              Chourouq (lever) : <strong className="text-stone-800 font-mono">{effectiveTimes?.shuruk || '08:15'}</strong>
+              Chourouq (lever) : <strong className="text-stone-800 font-mono">{effectiveTimes.shuruk || '07:23'}</strong>
             </span>
 
             {/* Jumua note if Friday */}
@@ -176,11 +213,28 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/90 text-emerald-950 text-xs font-medium">
                 <Clock className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0" />
                 <span>
-                  Prochaine prière : <strong className="font-bold">{scheduleInfo.nextPrayer.name}</strong> dans{' '}
+                  Prochaine prière : <strong className="font-bold">{scheduleInfo.nextPrayer.name} ({scheduleInfo.nextPrayer.time})</strong> dans{' '}
                   <span className="font-mono font-bold text-amber-700">{scheduleInfo.formattedCountdown}</span>
                 </span>
               </div>
             )}
+
+            {/* Auto-sync indicator */}
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Synchro auto ({lastSync})</span>
+            </span>
+
+            {/* Manual Sync button */}
+            <button
+              onClick={fetchLiveMawaqit}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 hover:text-emerald-900 border border-stone-200 text-xs font-semibold transition-colors cursor-pointer"
+              title="Synchroniser immédiatement avec Mawaqit"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-700' : 'text-stone-500'}`} />
+              <span className="hidden sm:inline">{isRefreshing ? 'Synchro...' : 'Synchroniser'}</span>
+            </button>
 
             {/* Complete Calendar button */}
             <button
@@ -270,7 +324,9 @@ export const PrayerTimesStrip: React.FC<PrayerTimesStripProps> = ({
         <div className="mt-2.5 flex items-center justify-between text-[11px] text-stone-500">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-            <span>Fajr, Dhuhr, Asr, Maghrib et Isha fixes · Synchronisés avec Mawaqit</span>
+            <span>
+              Horaires du {formatShortDateFR(scheduleInfo.effectiveDate)} · Passage automatique au jour suivant après Isha
+            </span>
           </span>
           <a
             href={mawaqitUrl}

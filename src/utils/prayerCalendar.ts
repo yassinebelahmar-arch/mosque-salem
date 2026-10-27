@@ -1,3 +1,6 @@
+import mawaqitStaticData from '../../public/api/mawaqit.json';
+import { getCurrentParisDate } from './prayerTimes';
+
 /**
  * Prayer Calendar generator for Mosquée SALEM (Saint-Sulpice-la-Pointe, 81370)
  * Coordinates: 43.7744° N, 1.6853° E
@@ -142,19 +145,23 @@ function parseHM(t: string): number {
 
 /**
  * Returns prayer schedule for all days of the given month (1 to 12) and year.
- * If live Mawaqit calendar data is supplied, uses exact Mawaqit times.
+ * Uses official Mawaqit calendar data.
  */
 export function getMonthlyCalendar(
   year: number,
   month: number,
-  mawaqitCalendar?: Array<Record<string, string[]>> | null
+  mawaqitCalendar?: Array<Record<string, string[]>> | null,
+  referenceDate?: Date
 ): DayPrayerSchedule[] {
   const daysInMonth = new Date(year, month, 0).getDate();
-  const today = new Date();
+  const today = referenceDate || getCurrentParisDate();
   const isCurrentYearMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
   const currentDay = today.getDate();
 
-  const mawaqitMonth = mawaqitCalendar && mawaqitCalendar[month - 1] ? mawaqitCalendar[month - 1] : null;
+  const calendarSource =
+    mawaqitCalendar ||
+    ((mawaqitStaticData as { calendar?: Array<Record<string, string[]>> }).calendar ?? null);
+  const mawaqitMonth = calendarSource && calendarSource[month - 1] ? calendarSource[month - 1] : null;
 
   const list: DayPrayerSchedule[] = [];
 

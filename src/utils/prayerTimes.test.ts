@@ -7,23 +7,24 @@ import {
   calculateIqamaTime,
   getPrayerScheduleInfo,
   getJumuaTime,
+  formatShortDateFR,
 } from './prayerTimes.ts';
 
 test('calculateIqamaTime strictly enforces Maghrib as Adhan + 5 min', () => {
   assert.equal(calculateIqamaTime('maghrib', '19:04'), '19:09');
-  assert.equal(calculateIqamaTime('maghrib', '19:10'), '19:15');
+  assert.equal(calculateIqamaTime('maghrib', '17:56'), '18:01');
   assert.equal(calculateIqamaTime('maghrib', '18:59'), '19:04');
 });
 
 test('calculateIqamaTime enforces official delays for all prayers', () => {
   // Fajr: +10 min delay (Fajr +10min)
-  assert.equal(calculateIqamaTime('fajr', '07:00'), '07:10');
+  assert.equal(calculateIqamaTime('fajr', '06:06'), '06:16');
   // Dhuhr: +10 min
-  assert.equal(calculateIqamaTime('dhuhr', '13:40'), '13:50');
+  assert.equal(calculateIqamaTime('dhuhr', '12:39'), '12:49');
   // Asr: +10 min
-  assert.equal(calculateIqamaTime('asr', '16:34'), '16:44');
+  assert.equal(calculateIqamaTime('asr', '15:28'), '15:38');
   // Isha: +10 min
-  assert.equal(calculateIqamaTime('isha', '20:17'), '20:27');
+  assert.equal(calculateIqamaTime('isha', '19:10'), '19:20');
 });
 
 test('timeToMinutes converts HH:mm accurately', () => {
@@ -47,8 +48,7 @@ test('formatCountdown outputs clean French time string', () => {
 });
 
 test('getPrayerScheduleInfo correctly identifies active prayer during Iqama + 10min window', () => {
-  // Dhuhr is 13:40, Iqama is 13:50 (+10m), finished at 14:00 (+10m).
-  // At 13:45, prayer is active (isCurrent === true)
+  // Dhuhr on 20 Oct 2026 is 13:40, Iqama is 13:50 (+10m), finished at 14:00 (+10m).
   const activeDate = new Date('2026-10-20T13:45:00');
   const activeInfo = getPrayerScheduleInfo(activeDate);
 
@@ -64,16 +64,33 @@ test('getPrayerScheduleInfo correctly identifies active prayer during Iqama + 10
   assert.equal(finishedInfo.nextPrayer.id, 'asr');
 });
 
-test('getPrayerScheduleInfo correctly wraps to Fajr tomorrow night when all salats have finished', () => {
-  // At 23:00 (after Isha 20:20 + Iqama 20:30 + 10 min = 20:40)
-  const lateDate = new Date('2026-10-20T23:00:00');
-  const info = getPrayerScheduleInfo(lateDate);
+test('getPrayerScheduleInfo keeps today schedule before Isha and resets all prayer times to tomorrow only after Isha', () => {
+  // At 10:00 on 26/10/2026 (after Fajr 06:04, before Isha 19:11):
+  // All displayed times and date remain 26/10/2026 (Fajr 06:04, Dhuhr 12:39, Isha 19:11)
+  const daytime26Oct = new Date(2026, 9, 26, 10, 0, 0);
+  const daytimeInfo = getPrayerScheduleInfo(daytime26Oct);
 
+  assert.equal(daytimeInfo.isAfterIsha, false);
+  assert.equal(formatShortDateFR(daytimeInfo.effectiveDate), '26/10/2026');
+  assert.equal(daytimeInfo.effectiveTimes.fajr, '06:04');
+  assert.equal(daytimeInfo.effectiveTimes.isha, '19:11');
+  assert.equal(daytimeInfo.nextPrayer.id, 'dhuhr');
+
+  // At 21:00 on 26/10/2026 (after Isha 19:11 + Iqama 19:21 + 10 min = 19:31):
+  // Full reset to 27/10/2026 for all prayers
+  const afterIsha26Oct = new Date(2026, 9, 26, 21, 0, 0);
+  const info = getPrayerScheduleInfo(afterIsha26Oct);
+
+  assert.equal(info.isAfterIsha, true);
+  assert.equal(formatShortDateFR(info.effectiveDate), '27/10/2026');
   assert.equal(info.nextPrayer.id, 'fajr');
-  // Isha is finished, so currentPrayer is null (no prayer en cours)
-  assert.equal(info.currentPrayer, null);
-  assert.equal(info.timeRemainingMinutes, 477);
-  assert.equal(info.formattedCountdown, '7h 57min');
+  assert.equal(info.nextPrayer.time, '06:06');
+  assert.equal(info.effectiveTimes.fajr, '06:06');
+  assert.equal(info.effectiveTimes.shuruk, '07:23');
+  assert.equal(info.effectiveTimes.dhuhr, '12:39');
+  assert.equal(info.effectiveTimes.asr, '15:28');
+  assert.equal(info.effectiveTimes.maghrib, '17:56');
+  assert.equal(info.effectiveTimes.isha, '19:10');
 });
 
 test('getJumuaTime switches to 13h00 starting from Sunday 25 Oct 2026', () => {
